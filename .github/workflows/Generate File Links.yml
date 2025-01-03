@@ -18,11 +18,16 @@ jobs:
         id: repos
         run: |
           # 目标仓库名称
-          TARGET_REPOS=("Lustra_202412")  # 在这里手动输入目标仓库名称
+          TARGET_REPOS=("Lustra_202412")  # 你的目标仓库
 
           # 输出目标仓库列表
           echo "Repositories to process: ${TARGET_REPOS[@]}"
           echo "::set-output name=repo_list::${TARGET_REPOS[@]}"
+
+      - name: Set Git user info
+        run: |
+          git config --global user.name "4evoR54"  # 使用你的 GitHub 用户名
+          git config --global user.email "2218378272@qq.com"  # 使用你的邮箱地址
 
       - name: Generate raw file links for each repository
         run: |
