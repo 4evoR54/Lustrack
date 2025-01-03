@@ -1,72 +1,31 @@
-name: Generate File Links
+- name: Get list of repositories
+  id: repos
+  run: |
+    OWNER="your-organization-or-username"  # Set this manually if needed
+    echo "Fetching repositories that start with 'Lustra'..."
 
-on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
+    REPO_LIST=""
+    PAGE=1
+    while true; do
+      RESPONSE=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+        "https://api.github.com/orgs/$OWNER/repos?per_page=100&page=$PAGE")
 
-jobs:
-  generate:
-    runs-on: ubuntu-latest
+      # Check if the response contains an error
+      ERROR_MESSAGE=$(echo "$RESPONSE" | jq -r '.message')
+      if [ "$ERROR_MESSAGE" != "null" ]; then
+        echo "Error fetching repositories: $ERROR_MESSAGE"
+        exit 1
+      fi
 
-    steps:
-      - name: Checkout Lustra repository
-        uses: actions/checkout@v3
+      REPO_NAMES=$(echo "$RESPONSE" | jq -r '.[] | select(.name | startswith("Lustra")) | .name')
 
-      - name: Get list of repositories
-        id: repos
-        run: |
-          echo "Fetching repositories that start with 'Lustra'..."
-          
-          REPO_LIST=""
-          PAGE=1
-          while true; do
-            # Get repositories data
-            RESPONSE=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              "https://api.github.com/orgs/${{ github.repository_owner }}/repos?per_page=100&page=$PAGE")
+      if [ -z "$REPO_NAMES" ]; then
+        break
+      fi
 
-            # Check if the response contains an error
-            ERROR_MESSAGE=$(echo "$RESPONSE" | jq -r '.message')
-            if [ "$ERROR_MESSAGE" != "null" ]; then
-              echo "Error fetching repositories: $ERROR_MESSAGE"
-              exit 1
-            fi
+      REPO_LIST="$REPO_LIST $REPO_NAMES"
+      PAGE=$((PAGE + 1))
+    done
 
-            # Get repository names starting with 'Lustra'
-            REPO_NAMES=$(echo "$RESPONSE" | jq -r '.[] | select(.name | startswith("Lustra")) | .name')
-
-            if [ -z "$REPO_NAMES" ]; then
-              break
-            fi
-
-            REPO_LIST="$REPO_LIST $REPO_NAMES"
-            PAGE=$((PAGE + 1))
-          done
-
-          echo "Repositories found: $REPO_LIST"
-          echo "::set-output name=repo_list::$REPO_LIST"
-
-      - name: Generate raw file links for each repository
-        run: |
-          REPO_LIST="${{ steps.repos.outputs.repo_list }}"
-          
-          for REPO in $REPO_LIST; do
-            echo "Processing repository: $REPO"
-
-            git clone "https://github.com/${{ github.repository_owner }}/$REPO.git"
-            
-            LINK_FILE="${REPO}-links.txt"
-            echo "# Raw File Links for $REPO" > $LINK_FILE
-
-            find $REPO -type f | while read FILE; do
-              RAW_LINK="https://raw.githubusercontent.com/${{ github.repository_owner }}/$REPO/main/$FILE"
-              echo $RAW_LINK >> $LINK_FILE
-            done
-          
-            git add $LINK_FILE
-            git commit -m "Generate file links list for $REPO"
-            git push
-          
-            rm -rf $REPO
-          done
+    echo "Repositories found: $REPO_LIST"
+    echo "::set-output name=repo_list::$REPO_LIST"
