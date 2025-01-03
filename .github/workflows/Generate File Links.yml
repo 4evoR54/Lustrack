@@ -17,65 +17,56 @@ jobs:
       - name: Get list of repositories
         id: repos
         run: |
-          # 使用 GitHub API 获取所有仓库的列表，筛选出名称以 "Lustra" 开头的仓库
           echo "Fetching repositories that start with 'Lustra'..."
           
-          # 初始化空的仓库列表
           REPO_LIST=""
-
-          # 第一次请求（第一页数据）
           PAGE=1
           while true; do
-            # 获取该页仓库数据
+            # Get repositories data
             RESPONSE=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
               "https://api.github.com/orgs/${{ github.repository_owner }}/repos?per_page=100&page=$PAGE")
 
-            # 获取当前页面的仓库名称并添加到 REPO_LIST
+            # Check if the response contains an error
+            ERROR_MESSAGE=$(echo "$RESPONSE" | jq -r '.message')
+            if [ "$ERROR_MESSAGE" != "null" ]; then
+              echo "Error fetching repositories: $ERROR_MESSAGE"
+              exit 1
+            fi
+
+            # Get repository names starting with 'Lustra'
             REPO_NAMES=$(echo "$RESPONSE" | jq -r '.[] | select(.name | startswith("Lustra")) | .name')
 
-            # 如果没有仓库返回，则退出循环
             if [ -z "$REPO_NAMES" ]; then
               break
             fi
 
-            # 添加当前页面的仓库名到 REPO_LIST
             REPO_LIST="$REPO_LIST $REPO_NAMES"
-
-            # 增加页码以进行分页
             PAGE=$((PAGE + 1))
           done
 
-          # 输出筛选出的仓库列表
           echo "Repositories found: $REPO_LIST"
           echo "::set-output name=repo_list::$REPO_LIST"
 
       - name: Generate raw file links for each repository
         run: |
-          # 获取从上一步得到的仓库列表
           REPO_LIST="${{ steps.repos.outputs.repo_list }}"
           
-          # 遍历每个仓库并生成对应的 raw 链接列表
           for REPO in $REPO_LIST; do
             echo "Processing repository: $REPO"
 
-            # 克隆目标仓库
             git clone "https://github.com/${{ github.repository_owner }}/$REPO.git"
             
-            # 创建 raw 链接文件
             LINK_FILE="${REPO}-links.txt"
             echo "# Raw File Links for $REPO" > $LINK_FILE
 
-            # 查找该仓库所有文件并生成 raw 链接
             find $REPO -type f | while read FILE; do
               RAW_LINK="https://raw.githubusercontent.com/${{ github.repository_owner }}/$REPO/main/$FILE"
               echo $RAW_LINK >> $LINK_FILE
             done
           
-            # 将生成的链接文件添加到 git
             git add $LINK_FILE
             git commit -m "Generate file links list for $REPO"
             git push
           
-            # 删除该仓库的临时目录
             rm -rf $REPO
           done
