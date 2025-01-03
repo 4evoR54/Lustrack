@@ -14,18 +14,38 @@ jobs:
       - name: Checkout Lustra repository
         uses: actions/checkout@v3
 
-      - name: Get list of repositories starting with 'Lustra'
+      - name: Get list of repositories
         id: repos
         run: |
-          # 使用 GitHub API 获取仓库列表，筛选出名称以 'Lustra' 开头的仓库
+          # 使用 GitHub API 获取所有仓库的列表，筛选出名称以 "Lustra" 开头的仓库
           echo "Fetching repositories that start with 'Lustra'..."
           
-          # 获取组织或用户所有仓库的列表
-          REPO_LIST=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/orgs/${{ github.repository_owner }}/repos?per_page=100" \
-            | jq -r '.[] | select(.name | startswith("Lustra")) | .name')
+          # 初始化空的仓库列表
+          REPO_LIST=""
 
-          # 输出仓库列表
+          # 第一次请求（第一页数据）
+          PAGE=1
+          while true; do
+            # 获取该页仓库数据
+            RESPONSE=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/orgs/${{ github.repository_owner }}/repos?per_page=100&page=$PAGE")
+
+            # 获取当前页面的仓库名称并添加到 REPO_LIST
+            REPO_NAMES=$(echo "$RESPONSE" | jq -r '.[] | select(.name | startswith("Lustra")) | .name')
+
+            # 如果没有仓库返回，则退出循环
+            if [ -z "$REPO_NAMES" ]; then
+              break
+            fi
+
+            # 添加当前页面的仓库名到 REPO_LIST
+            REPO_LIST="$REPO_LIST $REPO_NAMES"
+
+            # 增加页码以进行分页
+            PAGE=$((PAGE + 1))
+          done
+
+          # 输出筛选出的仓库列表
           echo "Repositories found: $REPO_LIST"
           echo "::set-output name=repo_list::$REPO_LIST"
 
