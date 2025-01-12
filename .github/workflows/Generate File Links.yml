@@ -1,59 +1,26 @@
-name: Generate File Links
+# Generate raw file links for each repository
+for REPO in $REPO_LIST; do
+  echo "Processing repository: $REPO"
 
-on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
+  # Clone the target repository
+  git clone "https://github.com/${{ github.repository_owner }}/$REPO.git"
 
-jobs:
-  generate:
-    runs-on: ubuntu-latest
+  # Create a raw links file
+  LINK_FILE="${REPO}-links.txt"
 
-    steps:
-      - name: Checkout Lustra repository
-        uses: actions/checkout@v3
+  # Find all files in the repository and generate raw links
+  find $REPO -type f | while read FILE; do
+    # Generate raw link, adjusting the file path to remove the repository name
+    RELATIVE_PATH="${FILE#*/$REPO/}"  # Remove the repository name from the file path
+    RAW_LINK="https://raw.githubusercontent.com/${{ github.repository_owner }}/$REPO/main/$RELATIVE_PATH"
+    echo $RAW_LINK >> $LINK_FILE
+  done
 
-      - name: Manually specify repositories to process
-        id: repos
-        run: |
-          # 目标仓库名称
-          TARGET_REPOS=("Lustra_202412")  # 你的目标仓库
+  # Commit and push the generated link file
+  git add $LINK_FILE
+  git commit -m "Generate file links list for $REPO"
+  git push
 
-          # 输出目标仓库列表到环境变量
-          echo "repo_list=${TARGET_REPOS[@]}" >> $GITHUB_ENV
-
-      - name: Set Git user info
-        run: |
-          git config --global user.name "4evoR54"  # 使用你的 GitHub 用户名
-          git config --global user.email "2218378272@qq.com"  # 使用你的邮箱地址
-
-      - name: Generate raw file links for each repository
-        run: |
-          # 获取从上一步得到的目标仓库列表
-          REPO_LIST="${{ env.repo_list }}"
-          
-          # 遍历每个目标仓库并生成 raw 链接列表
-          for REPO in $REPO_LIST; do
-            echo "Processing repository: $REPO"
-
-            # 克隆目标仓库
-            git clone "https://github.com/${{ github.repository_owner }}/$REPO.git"
-            
-            # 创建 raw 链接文件
-            LINK_FILE="${REPO}-links.txt"
-            
-            # 查找该仓库所有文件并生成 raw 链接
-            find $REPO -type f | while read FILE; do
-              RAW_LINK="https://raw.githubusercontent.com/${{ github.repository_owner }}/$REPO/main/$FILE"
-              echo $RAW_LINK >> $LINK_FILE
-            done
-          
-            # 将生成的链接文件添加到 git
-            git add $LINK_FILE
-            git commit -m "Generate file links list for $REPO"
-            git push
-          
-            # 删除该仓库的临时目录
-            rm -rf $REPO
-          done
+  # Clean up by deleting the cloned repository
+  rm -rf $REPO
+done
