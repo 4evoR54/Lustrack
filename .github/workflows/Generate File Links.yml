@@ -40,22 +40,31 @@ jobs:
             # 克隆目标仓库
             git clone "https://github.com/${{ github.repository_owner }}/$REPO.git"
             
+            # 进入仓库目录
+            cd $REPO
+
+            # 拉取远程仓库的最新变化
+            git pull origin main
+
             # 创建 raw 链接文件
             LINK_FILE="${REPO}-links.txt"
             
             # 查找该仓库所有文件并生成 raw 链接
-            find $REPO -type f | while read FILE; do
+            find . -type f | while read FILE; do
               # 删除仓库的路径部分，只保留文件路径
               RELATIVE_PATH=$(echo $FILE | sed "s|^$REPO/||")
               RAW_LINK="https://raw.githubusercontent.com/${{ github.repository_owner }}/$REPO/main/$RELATIVE_PATH"
               echo $RAW_LINK >> $LINK_FILE
             done
-          
+            
             # 将生成的链接文件添加到 git
             git add $LINK_FILE
             git commit -m "Generate file links list for $REPO"
-            git push
+            
+            # 推送更改到远程仓库
+            git push origin main
           
-            # 删除该仓库的临时目录
+            # 返回上级目录并删除该仓库的临时目录
+            cd ..
             rm -rf $REPO
           done
