@@ -55,7 +55,10 @@ jobs:
             cd $REPO
             git add $(basename $LINK_FILE)
             git commit -m "Generate file links list for $REPO"
-            git push
+            
+            # 使用 GITHUB_TOKEN 进行身份验证并推送
+            git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository_owner }}/$REPO.git
+
             cd ..
 
             # 删除该仓库的临时目录
