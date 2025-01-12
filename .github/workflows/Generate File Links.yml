@@ -42,6 +42,7 @@ jobs:
             
             # 创建 raw 链接文件
             LINK_FILE="${REPO}-links.txt"
+            touch $LINK_FILE
 
             # 查找该仓库所有文件并生成 raw 链接
             find $REPO -type f | while read FILE; do
