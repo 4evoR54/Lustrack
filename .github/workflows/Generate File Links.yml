@@ -20,9 +20,8 @@ jobs:
           # 目标仓库名称
           TARGET_REPOS=("Lustra_202412")  # 你的目标仓库
 
-          # 输出目标仓库列表
-          echo "Repositories to process: ${TARGET_REPOS[@]}"
-          echo "::set-output name=repo_list::${TARGET_REPOS[@]}"
+          # 输出目标仓库列表到环境变量
+          echo "repo_list=${TARGET_REPOS[@]}" >> $GITHUB_ENV
 
       - name: Set Git user info
         run: |
@@ -32,7 +31,7 @@ jobs:
       - name: Generate raw file links for each repository
         run: |
           # 获取从上一步得到的目标仓库列表
-          REPO_LIST="${{ steps.repos.outputs.repo_list }}"
+          REPO_LIST="${{ env.repo_list }}"
           
           # 遍历每个目标仓库并生成 raw 链接列表
           for REPO in $REPO_LIST; do
@@ -43,8 +42,7 @@ jobs:
             
             # 创建 raw 链接文件
             LINK_FILE="${REPO}-links.txt"
-            echo "# Raw File Links for $REPO" > $LINK_FILE
-
+            
             # 查找该仓库所有文件并生成 raw 链接
             find $REPO -type f | while read FILE; do
               RAW_LINK="https://raw.githubusercontent.com/${{ github.repository_owner }}/$REPO/main/$FILE"
